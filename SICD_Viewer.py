@@ -10,7 +10,7 @@ from sarpy.visualization.remap import Density
 
 remap = Density()
 
-class VisionLabelApp:
+class SICDViewerApp:
     def __init__(self, root):
         self.root = root
         self.root.title("SICD Viewer")
@@ -39,57 +39,48 @@ class VisionLabelApp:
         radio_frame = tk.Frame(top_frame)
         radio_frame.pack(side=tk.RIGHT)
 
-        #create radio options for shape select
-        self.shape_select = tk.IntVar()
-        self.shape_select.set(0)
-        r0 = tk.Radiobutton(radio_frame, text="Boxes", variable=self.shape_select, value=0)
-        r0.pack(anchor= tk.W)
-        r1 = tk.Radiobutton(radio_frame, text="Lines", variable=self.shape_select, value=1)
-        r1.pack(anchor= tk.W)
+        self.radio = tk.IntVar()
+        self.r0 = tk.Radiobutton(radio_frame, text="Boxes", variable=self.radio, value=0)
+        self.r0.pack(anchor= tk.W)
+        self.r1 = tk.Radiobutton(radio_frame, text="Lines", variable=self.radio, value=1)
+        self.r1.pack(anchor= tk.W)
+
+        self.radio.set(0)
+
+
 
         # Create buttons for next and previous images
         self.prev_button = tk.Button(self.root, text="Prev", command=self.prev_image)
         self.prev_button.pack(side=tk.LEFT)
         self.next_button = tk.Button(self.root, text="Next", command=self.next_image)
         self.next_button.pack(side=tk.RIGHT)
-        
-        self.remove_button = tk.Button(self.root, text="Delete Image", command=self.remove_image)
-        self.remove_button.pack(side=tk.TOP)
 
-        self.export_csv = tk.IntVar()
-        self.export_txt = tk.IntVar()
-        self.import_txt = tk.IntVar()
-        self.class_label = tk.StringVar()
-        self.class_label.set(0)
-        export_csv_button = tk.Checkbutton(button_frame, variable=self.export_csv, text="Export Shapes CSV", onvalue=1, offvalue=0)
-        export_csv_button.pack(side=tk.RIGHT)
-
-        self.textbox_label = tk.Label(text="Class Label")
-        self.textbox_label.pack(side=tk.TOP)
-        self.textbox = tk.Entry(text="Class Label", textvariable=self.class_label)
-        self.textbox.pack(side=tk.TOP)
-        export_txt_button = tk.Checkbutton(button_frame, variable=self.export_txt, text="Export Boxes TXT", onvalue=1, offvalue=0)
-        export_txt_button.pack(side=tk.LEFT)
-        import_txt_button = tk.Checkbutton(button_frame, variable=self.import_txt, text="Import Boxes TXT", onvalue=1, offvalue=0, command=self.import_bounding_boxes)
-        import_txt_button.pack(side=tk.TOP)
+        self.latlon_box = tk.IntVar()
+        self.pix_box = tk.IntVar()
+        self.export_latlon_box = tk.Checkbutton(button_frame, variable=self.latlon_box, text="Export Rectangles CSV", onvalue=1, offvalue=0)
+        self.export_latlon_box.pack(side=tk.RIGHT)
+        # self.export_latlon_button = tk.Button(self.button_frame, text="Export Rectangles LatLon", command=self.export_latlon)
+        # self.export_latlon_button.pack(side=tk.RIGHT)
+        self.export_pix_box = tk.Checkbutton(button_frame, variable=self.pix_box, text="Export Rectangles TXT", onvalue=1, offvalue=0)
+        self.export_pix_box.pack(side=tk.LEFT)
+        # self.export_pix_button = tk.Button(self.button_frame, text="Export Rectangles Pixels", command=self.export_pix)
+        # self.export_pix_button.pack(side=tk.LEFT)
 
         self.canvas = tk.Canvas(self.root, bg="black")
         self.canvas.pack(fill=tk.BOTH, expand=tk.YES)
         
 
         # Bind events for zooming and panning
+
         self.canvas.bind("<MouseWheel>", self.zoom)
+        # self.root.bind('<Left>', self.pan_left)
+        # self.root.bind('<Right>', self.pan_right)
+        # self.root.bind('<Up>', self.pan_up)
+        # self.root.bind('<Down>', self.pan_down)
         
         # Bind arrow keys for navigation
         self.root.bind("<Left>", self.prev_image)
         self.root.bind("<Right>", self.next_image)
-
-        for i in range(10):
-            self.root.bind(str(i), self.num_key)
-
-        self.root.bind('<Up>', self.class_label_up)
-        self.root.bind('<Down>', self.class_label_down)
-
 
         self.canvas.bind("<ButtonPress-1>", self.on_button_press)
         self.canvas.bind("<ButtonPress-2>", self.middle_click)
@@ -114,14 +105,6 @@ class VisionLabelApp:
         # List to keep track of drawn rectangles
         self.shapes = []
         self.shape_type = []
-
-    def num_key(self, event):
-        self.class_label.set(event.char)
-    def class_label_up(self, event):
-        self.class_label.set(int(self.class_label.get())+1)
-    def class_label_down(self, event):
-        self.class_label.set(int(self.class_label.get())-1)
-
         
     def zoom(self, event):
         x = self.canvas.canvasx(event.x)
@@ -199,77 +182,28 @@ class VisionLabelApp:
             self.text_box.insert('1.0', f"{file_path}\n", "center")
             self.text_box.tag_configure("center", justify="center")
 
-    def image_change(self, increment):
-        if self.export_csv.get():
+
+    def next_image(self, event=None): 
+        if self.latlon_box.get():
             self.export_latlon()
-        if self.export_txt.get():
+        if self.pix_box.get():
             self.export_pix()
 
         self.clear_rect()
         if self.current_image_index is not None:
-            self.current_image_index = (self.current_image_index + increment)% len(self.image_paths)
+            self.current_image_index = (self.current_image_index + 1)% len(self.image_paths)
             self.show_current_image()
-            if self.import_txt.get():
-                self.import_bounding_boxes()
 
-    def next_image(self, event=None): 
-        self.image_change(increment=1)
     def prev_image(self, event=None):
-        self.image_change(increment=-1)
-    
-    def import_bounding_boxes(self):
-        text_file_name = self.image_paths[self.current_image_index].replace("png","txt")
-        if text_file_name in [(self.directory + '/' + i) for i in os.listdir(self.directory)]:
-            with open(text_file_name, "r") as f:
-                lines = f.readlines()
-            for templine in lines:
-                line = templine.split(" ")
-                if len(line)!=5:
-                    print("bounding box file error")
-                    return 
-                coords = [(self.width*(float(line[1])-float(line[3])/2),
-                        self.height*(float(line[2])-float(line[4])/2)),
-                        (self.width*(float(line[1])+float(line[3])/2),
-                        self.height*(float(line[2])+float(line[4])/2))]
-                # self.image.rectangle(shape, outline ="red")
-                self.rect = self.canvas.create_rectangle(coords[0][0], coords[0][1], coords[1][0], coords[1][1], fill="", outline="red")
+        if self.latlon_box.get():
+            self.export_latlon()
+        if self.pix_box.get():
+            self.export_pix()
 
-                self.shapes.append(self.rect)
-        else:
-            print("No Bounding Box File Found")
-
-    def remove_image(self):
-        if len(self.image_paths)==0:
-            print("End of the line partner")
-        elif len(self.image_paths)==1:
-            deletion_file = self.image_paths[self.current_image_index]
-            os.remove(deletion_file)
-            deletion_txt = deletion_file[0:deletion_file.rfind('.')] + '.txt'
-            if os.path.isfile(deletion_txt):
-                os.remove(deletion_txt)
-            self.image_paths.pop(self.current_image_index)
-        else:
-            if self.export_csv.get():
-                self.export_latlon()
-            if self.export_txt.get():
-                self.export_pix()
-        
-            self.clear_rect()
-            if self.current_image_index is not None:
-                self.current_image_index = (self.current_image_index + 1)% len(self.image_paths)
-                self.show_current_image()
-                # print("h")
-
-                if self.import_txt.get():
-                    self.import_bounding_boxes()
-            self.current_image_index-=1
-            deletion_file = self.image_paths[self.current_image_index]
-            os.remove(deletion_file)
-            deletion_txt = deletion_file[0:deletion_file.rfind('.')] + '.txt'
-            if os.path.isfile(deletion_txt):
-                os.remove(deletion_txt)
-            self.image_paths.pop(self.current_image_index)
-        # self.image_paths[self.current_image_index]
+        self.clear_rect()
+        if self.current_image_index is not None:
+            self.current_image_index = (self.current_image_index - 1)% len(self.image_paths)
+            self.show_current_image()
 
     def on_button_press(self, event):
         # create rectangle if not yet exist
@@ -277,7 +211,7 @@ class VisionLabelApp:
         y = self.canvas.canvasy(event.y)
         self.start_x = x
         self.start_y = y
-        radio = self.shape_select.get()
+        radio = self.radio.get()
         if radio == 0:
             self.rect = self.canvas.create_rectangle(x, y, x, y, fill="", outline="red")
             self.shapes.append(self.rect)
@@ -290,9 +224,9 @@ class VisionLabelApp:
         # expand rectangle as you drag the mouse
         x = self.canvas.canvasx(event.x)
         y = self.canvas.canvasy(event.y)
-        if self.shape_select.get() == 0:
+        if self.radio.get() == 0:
             self.canvas.coords(self.rect, self.start_x, self.start_y, x, y)
-        elif self.shape_select.get() ==1:
+        elif self.radio.get() ==1:
             self.canvas.coords(self.line, self.start_x, self.start_y, x, y)
         
 
@@ -307,10 +241,10 @@ class VisionLabelApp:
             self.canvas.delete(self.shapes.pop())
     
     def middle_click(self, event):
-        if self.shape_select.get()==1:
-            self.shape_select.set(0)
-        elif self.shape_select.get()==0:
-            self.shape_select.set(1)
+        if self.radio.get()==1:
+            self.radio.set(0)
+        elif self.radio.get()==0:
+            self.radio.set(1)
 
 
     def clear_rect(self):
@@ -318,48 +252,22 @@ class VisionLabelApp:
             self.canvas.delete(self.shapes.pop())
 
     def export_pix(self):
-        #lat0,lon0 = self.sicd.sicd_meta.GeoData.ImageCorners.FRFC
-        #lat,lon = self.sicd.sicd_meta.GeoData.ImageCorners.LRLC -self.sicd.sicd_meta.GeoData.ImageCorners.FRFC
-        #print(self.sicd.sicd_meta.GeoData.ImageCorners.LRLC -self.sicd.sicd_meta.GeoData.ImageCorners.FRFC, self.sicd.sicd_meta.GeoData.ImageCorners.LRFC -self.sicd.sicd_meta.GeoData.ImageCorners.FRLC)
-        #print(self.sicd.sicd_meta.GeoData.ImageCorners.FRFC,self.sicd.sicd_meta.GeoData.ImageCorners.FRLC,self.sicd.sicd_meta.GeoData.ImageCorners.LRLC,self.sicd.sicd_meta.GeoData.ImageCorners.LRFC)
-        x, y = self.width, self.height
+        x, y = self.width, self.height        
         w, h = self.image.width, self.image.height
-        def xy_latlon(xy):
-            # coords = point_projection.image_to_ground_geo(xy, self.sicd.sicd_meta, projection_type='PLANE')
-            # return coords[:2]
-            return xy[:2]
-        columns = ['center', "corner0","corner1", "corner2", "corner3"]
-        column_names = ["name"]
-        column_names.extend([f"{column}_{latlon}" for column in columns for latlon in ['x', 'y']])
-        # column_names.extend([f"{column}_{latlon}" for column in columns for latlon in ['lat', 'lon']])
-        # csv = os.path.join(self.directory,"bounding_box_latlon.csv")
-        # if os.path.isfile(csv):
-        #     latlonDF = pd.read_csv(csv)
-        # else:
-        #     latlonDF = pd.DataFrame(columns=column_names)
-        vals = []
-        for i, shape in enumerate(self.shapes):
-            # print(self.shape_type[i])
-            x1, y1, x2, y2 = self.canvas.coords(shape)
-            # print(x,y, w,h)
-            # print([w*x1/x, h*y1/y],[w*x2/x, h*y2/y])
-            # print(xy_latlon([w*x1/x, h*y1/y]),xy_latlon([w*x2/x, h*y2/y]))
-            # print(xy_latlon([w*x1/x, h*y1/y]),xy_latlon([w*x2/x, h*y2/y]))
-
-            vals.append([(w*x1/x +w*x2/x)/(2*w),(h*y1/y +h*y2/y)/(2*h), abs(w*x1/x-w*x2/x)/(w),abs(h*y1/y -h*y2/y)/(h)])
-        output_file = self.image_paths[self.current_image_index].replace("png","txt")
-        # print(output_file)
-        if len(vals) == 0:
-            return 
-        with open(output_file, "w") as f:
-            start = True
-            for i in vals:
-                if start:
-                    start = False
-                else:
-                    f.write('\n')
-
-                f.write(f"{str(self.class_label.get())} {str(i[0])} {str(i[1])} {str(i[2])} {str(i[3])}")
+        for rect in self.shapes:
+            x1, y1, x2, y2 = self.canvas.coords(rect)
+            print([w*x1/x, h*y1/y],[w*x2/x, h*y2/y])
+        with open('pixels.txt', "w") as f:
+            for rect in self.rectangles:
+                x1, y1, x2, y2 = self.canvas.coords(rect)
+                out0 = (x1/x+x2/x)/2
+                out1 = (y1/y + y2/y)/2
+                out2 = (x2/x - x1/x)
+                out3 = (y2/y-y1/y)
+                print(out0, out1,out2,out3)
+                # print(x1/x *w , y1/x * h, x2/x *w , h*y2/y)
+                # print("hey")
+                f.write(f"0 {str(out0)} {str(out1)} {str(out2)} {str(out3)} \n")
 
 
     def export_latlon(self):
@@ -407,7 +315,7 @@ class VisionLabelApp:
 def main():
     root = tk.Tk()
     root.state('zoomed')
-    app = VisionLabelApp(root)
+    app = SICDViewerApp(root)
     app.open_image()
 
     # Set focus to the canvas after a short delay
