@@ -39,13 +39,13 @@ class VisionLabelApp:
         radio_frame = tk.Frame(top_frame)
         radio_frame.pack(side=tk.RIGHT)
 
-        #create radio options for shape select
-        self.shape_select = tk.IntVar()
-        self.shape_select.set(0)
-        r0 = tk.Radiobutton(radio_frame, text="Boxes", variable=self.shape_select, value=0)
-        r0.pack(anchor= tk.W)
-        r1 = tk.Radiobutton(radio_frame, text="Lines", variable=self.shape_select, value=1)
-        r1.pack(anchor= tk.W)
+        self.radio = tk.IntVar()
+        self.r0 = tk.Radiobutton(radio_frame, text="Boxes", variable=self.radio, value=0)
+        self.r0.pack(anchor= tk.W)
+        self.r1 = tk.Radiobutton(radio_frame, text="Lines", variable=self.radio, value=1)
+        self.r1.pack(anchor= tk.W)
+
+        self.radio.set(0)
 
         # Create buttons for next and previous images
         self.prev_button = tk.Button(self.root, text="Prev", command=self.prev_image)
@@ -53,25 +53,25 @@ class VisionLabelApp:
         self.next_button = tk.Button(self.root, text="Next", command=self.next_image)
         self.next_button.pack(side=tk.RIGHT)
         
-        self.remove_button = tk.Button(self.root, text="Delete Image", command=self.remove_image)
-        self.remove_button.pack(side=tk.TOP)
+        self.bb_button = tk.Button(self.root, text="Remove Image", command=self.remove_image)
+        self.bb_button.pack(side=tk.TOP)
 
-        self.export_csv = tk.IntVar()
-        self.export_txt = tk.IntVar()
-        self.import_txt = tk.IntVar()
-        self.class_label = tk.StringVar()
-        self.class_label.set(0)
-        export_csv_button = tk.Checkbutton(button_frame, variable=self.export_csv, text="Export Shapes CSV", onvalue=1, offvalue=0)
-        export_csv_button.pack(side=tk.RIGHT)
+        self.latlon_box = tk.IntVar()
+        self.pix_box = tk.IntVar()
+        self.bb_button = tk.IntVar()
+        self.txt = tk.StringVar()
+        self.txt.set(0)
+        self.export_latlon_box = tk.Checkbutton(button_frame, variable=self.latlon_box, text="Export Rectangles CSV", onvalue=1, offvalue=0)
+        self.export_latlon_box.pack(side=tk.RIGHT)
 
         self.textbox_label = tk.Label(text="Class Label")
         self.textbox_label.pack(side=tk.TOP)
-        self.textbox = tk.Entry(text="Class Label", textvariable=self.class_label)
+        self.textbox = tk.Entry(text="Class Label", textvariable=self.txt)
         self.textbox.pack(side=tk.TOP)
-        export_txt_button = tk.Checkbutton(button_frame, variable=self.export_txt, text="Export Boxes TXT", onvalue=1, offvalue=0)
-        export_txt_button.pack(side=tk.LEFT)
-        import_txt_button = tk.Checkbutton(button_frame, variable=self.import_txt, text="Import Boxes TXT", onvalue=1, offvalue=0, command=self.import_bounding_boxes)
-        import_txt_button.pack(side=tk.TOP)
+        self.export_pix_box = tk.Checkbutton(button_frame, variable=self.pix_box, text="Export Rectangles TXT", onvalue=1, offvalue=0)
+        self.export_pix_box.pack(side=tk.LEFT)
+        self.import_bb_button = tk.Checkbutton(button_frame, variable=self.bb_button, text="Import Bounding Boxes", onvalue=1, offvalue=0, command=self.import_bounding_boxes)
+        self.import_bb_button.pack(side=tk.TOP)
 
         self.canvas = tk.Canvas(self.root, bg="black")
         self.canvas.pack(fill=tk.BOTH, expand=tk.YES)
@@ -116,11 +116,11 @@ class VisionLabelApp:
         self.shape_type = []
 
     def num_key(self, event):
-        self.class_label.set(event.char)
+        self.txt.set(event.char)
     def class_label_up(self, event):
-        self.class_label.set(int(self.class_label.get())+1)
+        self.txt.set(int(self.txt.get())+1)
     def class_label_down(self, event):
-        self.class_label.set(int(self.class_label.get())-1)
+        self.txt.set(int(self.txt.get())-1)
 
         
     def zoom(self, event):
@@ -200,16 +200,16 @@ class VisionLabelApp:
             self.text_box.tag_configure("center", justify="center")
 
     def image_change(self, increment):
-        if self.export_csv.get():
+        if self.latlon_box.get():
             self.export_latlon()
-        if self.export_txt.get():
+        if self.pix_box.get():
             self.export_pix()
 
         self.clear_rect()
         if self.current_image_index is not None:
             self.current_image_index = (self.current_image_index + increment)% len(self.image_paths)
             self.show_current_image()
-            if self.import_txt.get():
+            if self.bb_button.get():
                 self.import_bounding_boxes()
 
     def next_image(self, event=None): 
@@ -221,18 +221,20 @@ class VisionLabelApp:
         text_file_name = self.image_paths[self.current_image_index].replace("png","txt")
         if text_file_name in [(self.directory + '/' + i) for i in os.listdir(self.directory)]:
             with open(text_file_name, "r") as f:
-                line = f.readline().split(" ")
-            if len(line)!=5:
-                print("bounding box file error")
-                return 
-            coords = [(self.width*(float(line[1])-float(line[3])/2),
-                    self.height*(float(line[2])-float(line[4])/2)),
-                    (self.width*(float(line[1])+float(line[3])/2),
-                    self.height*(float(line[2])+float(line[4])/2))]
-            # self.image.rectangle(shape, outline ="red")
-            self.rect = self.canvas.create_rectangle(coords[0][0], coords[0][1], coords[1][0], coords[1][1], fill="", outline="red")
+                lines = f.readlines()
+            for templine in lines:
+                line = templine.split(" ")
+                if len(line)!=5:
+                    print("bounding box file error")
+                    return 
+                coords = [(self.width*(float(line[1])-float(line[3])/2),
+                        self.height*(float(line[2])-float(line[4])/2)),
+                        (self.width*(float(line[1])+float(line[3])/2),
+                        self.height*(float(line[2])+float(line[4])/2))]
+                # self.image.rectangle(shape, outline ="red")
+                self.rect = self.canvas.create_rectangle(coords[0][0], coords[0][1], coords[1][0], coords[1][1], fill="", outline="red")
 
-            self.shapes.append(self.rect)
+                self.shapes.append(self.rect)
         else:
             print("No Bounding Box File Found")
 
@@ -247,18 +249,20 @@ class VisionLabelApp:
                 os.remove(deletion_txt)
             self.image_paths.pop(self.current_image_index)
         else:
-            if self.export_csv.get():
+            if self.latlon_box.get():
                 self.export_latlon()
-            if self.export_txt.get():
+            if self.pix_box.get():
                 self.export_pix()
-        
+            
+
             self.clear_rect()
             if self.current_image_index is not None:
                 self.current_image_index = (self.current_image_index + 1)% len(self.image_paths)
                 self.show_current_image()
                 # print("h")
 
-                if self.import_txt.get():
+                if self.bb_button.get():
+
                     self.import_bounding_boxes()
             self.current_image_index-=1
             deletion_file = self.image_paths[self.current_image_index]
@@ -275,7 +279,7 @@ class VisionLabelApp:
         y = self.canvas.canvasy(event.y)
         self.start_x = x
         self.start_y = y
-        radio = self.shape_select.get()
+        radio = self.radio.get()
         if radio == 0:
             self.rect = self.canvas.create_rectangle(x, y, x, y, fill="", outline="red")
             self.shapes.append(self.rect)
@@ -288,9 +292,9 @@ class VisionLabelApp:
         # expand rectangle as you drag the mouse
         x = self.canvas.canvasx(event.x)
         y = self.canvas.canvasy(event.y)
-        if self.shape_select.get() == 0:
+        if self.radio.get() == 0:
             self.canvas.coords(self.rect, self.start_x, self.start_y, x, y)
-        elif self.shape_select.get() ==1:
+        elif self.radio.get() ==1:
             self.canvas.coords(self.line, self.start_x, self.start_y, x, y)
         
 
@@ -305,10 +309,10 @@ class VisionLabelApp:
             self.canvas.delete(self.shapes.pop())
     
     def middle_click(self, event):
-        if self.shape_select.get()==1:
-            self.shape_select.set(0)
-        elif self.shape_select.get()==0:
-            self.shape_select.set(1)
+        if self.radio.get()==1:
+            self.radio.set(0)
+        elif self.radio.get()==0:
+            self.radio.set(1)
 
 
     def clear_rect(self):
@@ -351,13 +355,16 @@ class VisionLabelApp:
             return 
         with open(output_file, "w") as f:
             start = True
+
             for i in vals:
                 if start:
                     start = False
                 else:
                     f.write('\n')
 
-                f.write(f"{str(self.class_label.get())} {str(i[0])} {str(i[1])} {str(i[2])} {str(i[3])}")
+                f.write(f"{str(self.txt.get())} {str(i[0])} {str(i[1])} {str(i[2])} {str(i[3])}")
+
+
 
 
     def export_latlon(self):
