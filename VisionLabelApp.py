@@ -247,6 +247,9 @@ class VisionLabelApp:
             deletion_txt = deletion_file[0:deletion_file.rfind('.')] + '.txt'
             if os.path.isfile(deletion_txt):
                 os.remove(deletion_txt)
+            deletion_file_pair = deletion_file.replace('static', 'moving')
+            if os.path.isfile(deletion_file_pair):
+                os.remove(deletion_file_pair)
             self.image_paths.pop(self.current_image_index)
         else:
             if self.latlon_box.get():
