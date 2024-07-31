@@ -3,10 +3,12 @@ import numpy as np
 import pandas as pd
 import tkinter as tk
 from tkinter import filedialog, scrolledtext
+from tkinter.messagebox import askyesno
 from PIL import Image, ImageTk
 from sarpy.geometry import point_projection
 from sarpy.io.complex.sicd import SICDReader
 from sarpy.visualization.remap import Density
+from sarpy.utils import chip_sicd
 
 remap = Density()
 
@@ -33,9 +35,6 @@ class VisionLabelApp:
         top_frame = tk.Frame(root)
         top_frame.pack(side='top')
 
-        button_frame = tk.Frame(top_frame)
-        button_frame.pack(side=tk.LEFT)
-
         radio_frame = tk.Frame(top_frame)
         radio_frame.pack(side=tk.RIGHT)
 
@@ -53,32 +52,50 @@ class VisionLabelApp:
         self.next_button = tk.Button(self.root, text="Next", command=self.next_image)
         self.next_button.pack(side=tk.RIGHT)
         
-        self.bb_button = tk.Button(self.root, text="Remove Image", command=self.remove_image)
-        self.bb_button.pack(side=tk.TOP)
+        button_frame = tk.Frame(root)
+        button_frame.pack(side='top')
+        remove_button = tk.Button(button_frame, text="Remove Image", command=self.remove_image)
+        remove_button.pack(side=tk.RIGHT)
+        chip_button = tk.Button(button_frame, text="Export Chips", command=self.chip)
+        chip_button.pack(side=tk.LEFT)
+        chip_options_frame = tk.Frame(button_frame)
+        chip_options_frame.pack(side=tk.RIGHT)
+        self.chip_png_var = tk.IntVar()
+        self.chip_sicd_var = tk.IntVar()
+        self.chip_png_box = tk.Checkbutton(chip_options_frame, variable=self.chip_png_var, text="Chip to PNG", onvalue=1, offvalue=0)
+        self.chip_png_box.pack(side=tk.TOP)
+        self.chip_sicd_box = tk.Checkbutton(chip_options_frame, variable=self.chip_sicd_var, text="Chip to SICD", onvalue=1, offvalue=0)
+        self.chip_sicd_box.pack(side=tk.BOTTOM)
+        
 
-        self.latlon_box = tk.IntVar()
+        check_box_frame = tk.Frame(top_frame)
+        check_box_frame.pack(side=tk.LEFT)
+        
+        self.csv_box = tk.IntVar()
         self.pix_box = tk.IntVar()
         self.bb_button = tk.IntVar()
         self.txt = tk.StringVar()
         self.txt.set(0)
-        self.export_latlon_box = tk.Checkbutton(button_frame, variable=self.latlon_box, text="Export Rectangles CSV", onvalue=1, offvalue=0)
-        self.export_latlon_box.pack(side=tk.RIGHT)
+        self.export_csv_box = tk.Checkbutton(check_box_frame, variable=self.csv_box, text="Export Rectangles CSV", onvalue=1, offvalue=0)
+        self.export_csv_box.pack(side=tk.RIGHT)
 
         self.textbox_label = tk.Label(text="Class Label")
         self.textbox_label.pack(side=tk.TOP)
         self.textbox = tk.Entry(text="Class Label", textvariable=self.txt)
         self.textbox.pack(side=tk.TOP)
-        self.export_pix_box = tk.Checkbutton(button_frame, variable=self.pix_box, text="Export Rectangles TXT", onvalue=1, offvalue=0)
+        self.export_pix_box = tk.Checkbutton(check_box_frame, variable=self.pix_box, text="Export Rectangles TXT", onvalue=1, offvalue=0)
         self.export_pix_box.pack(side=tk.LEFT)
-        self.import_bb_button = tk.Checkbutton(button_frame, variable=self.bb_button, text="Import Bounding Boxes", onvalue=1, offvalue=0, command=self.import_bounding_boxes)
+        self.import_bb_button = tk.Checkbutton(check_box_frame, variable=self.bb_button, text="Import Bounding Boxes", onvalue=1, offvalue=0, command=self.import_bounding_boxes)
         self.import_bb_button.pack(side=tk.TOP)
 
         self.canvas = tk.Canvas(self.root, bg="black")
         self.canvas.pack(fill=tk.BOTH, expand=tk.YES)
-        
 
         # Bind events for zooming and panning
-        self.canvas.bind("<MouseWheel>", self.zoom)
+        # self.canvas.bind("<MouseWheel>", self.zoom)
+        self.canvas.bind('<MouseWheel>', self.wheel)  # with Windows and MacOS, but not Linux
+        self.canvas.bind('<Button-5>',   self.wheel)  # only with Linux, wheel scroll down
+        self.canvas.bind('<Button-4>',   self.wheel)  # only with Linux, wheel scroll up
         
         # Bind arrow keys for navigation
         self.root.bind("<Left>", self.prev_image)
@@ -122,34 +139,119 @@ class VisionLabelApp:
     def class_label_down(self, event):
         self.txt.set(int(self.txt.get())-1)
 
+    def chip(self):
+        for i, shape in enumerate(self.shapes):
+            if self.shape_type[i] == 0:
+                x1, y1, x2, y2 = self.canvas.coords(shape)
+                x, y = self.width*self.zoom_level, self.height*self.zoom_level
+                w, h = self.image.width, self.image.height
+
+                x_start, y_start = w*x1/x, h*y1/y
+                x_end, y_end = w*x2/x, h*y2/y
+
+                print("")
+                print("")
+
+                print(x1, y1, x2, y2)
+                print(x_start, x_end)
+                print(y_start, y_end)
+                print(x, y)
+                print(w,h)
+                print(self.bbox)
+                print(self.zoom_level, self.imscale)
+                print((self.bbox[0]+x_start))
+                bbox_x = self.bbox[2]-self.bbox[0]
+                print(w/bbox_x)
+
+                # if self.chip_png_var.get():
+
+                    
+                
+                # if self.chip_sicd_var.get():
+                #     chip_sicd.create_chip()
+
+
+
+
+
+    # def zoom(self, event):
+    #     x = self.canvas.canvasx(event.x)
+    #     y = self.canvas.canvasy(event.y)
+    #     factor = 1.001**event.delta 
+    #     self.canvas.scale(tk.ALL, x,y,factor,factor)
+    #     self.zoom_level *= factor
         
-    def zoom(self, event):
+    #     self.update_image()
+    def wheel(self, event):
+        ''' Zoom with mouse wheel '''
         x = self.canvas.canvasx(event.x)
         y = self.canvas.canvasy(event.y)
-        factor = 1.001**event.delta 
-        self.canvas.scale(tk.ALL, x,y,factor,factor)
-        self.zoom_level *= factor
-        
+        self.bbox = self.canvas.bbox(self.container)  # get image area
+        if self.bbox[0] < x < self.bbox[2] and self.bbox[1] < y < self.bbox[3]: pass  # Ok! Inside the image
+        else: return  # zoom only inside image area
+        scale = 1.0
+        # Respond to Linux (event.num) or Windows (event.delta) wheel event
+        if event.num == 5 or event.delta == -120:  # scroll down
+            i = min(self.width, self.height)
+            if int(i * self.imscale) < 30: return  # image is less than 30 pixels
+            self.imscale /= self.delta
+            scale        /= self.delta
+        if event.num == 4 or event.delta == 120:  # scroll up
+            i = min(self.canvas.winfo_width(), self.canvas.winfo_height())
+            if i < self.imscale: return  # 1 pixel is bigger than the visible area
+            self.imscale *= self.delta
+            scale        *= self.delta
+        self.canvas.scale('all', x, y, scale, scale)  # rescale all canvas objects
         self.update_image()
         
     
-    def update_image(self):
-        if self.image:
-            self.width = self.image.width * self.zoom_level
-            self.height = self.image.height * self.zoom_level
-            new_width = int(self.width)
-            new_height = int(self.height)
+    def update_image(self, event=None):
+        # if self.image:
+        #     self.width = self.image.width * self.zoom_level
+        #     self.height = self.image.height * self.zoom_level
+        #     new_width = int(self.width)
+        #     new_height = int(self.height)
 
-            # Resize the image
-            resized_image = self.image.resize((new_width, new_height), Image.LANCZOS)
-            self.image_tk = ImageTk.PhotoImage(resized_image)
+        #     # Resize the image
+        #     resized_image = self.image.resize((new_width, new_height), Image.LANCZOS)
+        #     self.image_tk = ImageTk.PhotoImage(resized_image)
 
-            # Update the image on canvas
-            if self.image_id:
-                self.canvas.itemconfig(self.image_id, image=self.image_tk)
-                self.canvas.configure(scrollregion=(0, 0, new_width, new_height))
-                self.canvas.xview_moveto(self.offset_x / new_width)
-                self.canvas.yview_moveto(self.offset_y / new_height)
+        #     # Update the image on canvas
+        #     if self.image_id:
+        #         self.canvas.itemconfig(self.image_id, image=self.image_tk)
+        #         self.canvas.configure(scrollregion=(0, 0, new_width, new_height))
+        #         self.canvas.xview_moveto(self.offset_x / new_width)
+        #         self.canvas.yview_moveto(self.offset_y / new_height)
+        ''' Show image on the Canvas '''
+        bbox1 = self.canvas.bbox(self.container)  # get image area
+        # Remove 1 pixel shift at the sides of the bbox1
+        bbox1 = (bbox1[0] + 1, bbox1[1] + 1, bbox1[2] - 1, bbox1[3] - 1)
+        bbox2 = (self.canvas.canvasx(0),  # get visible area of the canvas
+                 self.canvas.canvasy(0),
+                 self.canvas.canvasx(self.canvas.winfo_width()),
+                 self.canvas.canvasy(self.canvas.winfo_height()))
+        bbox = [min(bbox1[0], bbox2[0]), min(bbox1[1], bbox2[1]),  # get scroll region box
+                max(bbox1[2], bbox2[2]), max(bbox1[3], bbox2[3])]
+        if bbox[0] == bbox2[0] and bbox[2] == bbox2[2]:  # whole image in the visible area
+            bbox[0] = bbox1[0]
+            bbox[2] = bbox1[2]
+        if bbox[1] == bbox2[1] and bbox[3] == bbox2[3]:  # whole image in the visible area
+            bbox[1] = bbox1[1]
+            bbox[3] = bbox1[3]
+        self.canvas.configure(scrollregion=bbox)  # set scroll region
+        x1 = max(bbox2[0] - bbox1[0], 0)  # get coordinates (x1,y1,x2,y2) of the image tile
+        y1 = max(bbox2[1] - bbox1[1], 0)
+        x2 = min(bbox2[2], bbox1[2]) - bbox1[0]
+        y2 = min(bbox2[3], bbox1[3]) - bbox1[1]
+        if int(x2 - x1) > 0 and int(y2 - y1) > 0:  # show image if it in the visible area
+            x = min(int(x2 / self.imscale), self.width)   # sometimes it is larger on 1 pixel...
+            y = min(int(y2 / self.imscale), self.height)  # ...and sometimes not
+            image = self.image.crop((int(x1 / self.imscale), int(y1 / self.imscale), x, y))
+            imagetk = ImageTk.PhotoImage(image.resize((int(x2 - x1), int(y2 - y1))))
+            imageid = self.canvas.create_image(max(bbox2[0], bbox1[0]), max(bbox2[1], bbox1[1]),
+                                               anchor='nw', image=imagetk)
+            self.canvas.lower(imageid)  # set image into background
+            self.canvas.imagetk = imagetk  # keep an extra reference to prevent garbage-collection
 
 
     def open_image(self):
@@ -175,23 +277,32 @@ class VisionLabelApp:
                 self.sicd = SICDReader(file_path)
                 sar_image = self.sicd[:]
                 self.image = Image.fromarray(remap(sar_image))
+                self.chip_sicd_box.config(state=tk.NORMAL)
             elif file_path.endswith((".jpg", ".jpeg", ".png")):
                 self.image = Image.open(file_path)
+                self.chip_sicd_box.config(state=tk.DISABLED)
             
 
             # Calculate initial zoom level to fit the entire image in the canvas
             canvas_width = self.canvas.winfo_width()
             canvas_height = self.canvas.winfo_height()
-            image_width, image_height = self.image.size
-            zoom_x = canvas_width / image_width
-            zoom_y = canvas_height / image_height
+            self.width, self.height = self.image.size
+            zoom_x = canvas_width / self.width
+            zoom_y = canvas_height / self.height
             self.zoom_level = min(zoom_x, zoom_y)
+            
 
-            self.image_tk = ImageTk.PhotoImage(self.image.resize((int(image_width * self.zoom_level),
-                                                                int(image_height * self.zoom_level))))
+            self.image_tk = ImageTk.PhotoImage(self.image.resize((int(self.width * self.zoom_level),
+                                                                int(self.height * self.zoom_level))))
+            self.imscale = 1.0  # scale for the canvaas image
+            self.delta = 1.3  # zoom magnitude
+            # Put image into container rectangle and use it to set proper coordinates to the image
+            self.container = self.canvas.create_rectangle(0, 0, self.width, self.height, width=0)
+            self.bbox = self.canvas.bbox(self.container)
+
             if self.image_id:
                 self.canvas.delete(self.image_id)  # Remove previous image from canvas
-            self.image_id = self.canvas.create_image(0, 0, anchor=tk.NW, image=self.image_tk)
+            # self.image_id = self.canvas.create_image(0, 0, anchor=tk.NW, image=self.image_tk)
             self.update_image()
             
             self.text_box.config(state=tk.NORMAL)
@@ -200,10 +311,12 @@ class VisionLabelApp:
             self.text_box.tag_configure("center", justify="center")
 
     def image_change(self, increment):
-        if self.latlon_box.get():
-            self.export_latlon()
+        if self.csv_box.get():
+            self.export_csv()
         if self.pix_box.get():
             self.export_pix()
+        if self.chip_png_var.get() or self.chip_sicd_var.get():
+            self.chip()
 
         self.clear_rect()
         if self.current_image_index is not None:
@@ -239,6 +352,9 @@ class VisionLabelApp:
             print("No Bounding Box File Found")
 
     def remove_image(self):
+        if not askyesno("File Deletion Warning","Are you sure you want to delete this file and any associated files?"):
+            return
+
         if len(self.image_paths)==0:
             print("End of the line partner")
         elif len(self.image_paths)==1:
@@ -252,8 +368,8 @@ class VisionLabelApp:
                 os.remove(deletion_file_pair)
             self.image_paths.pop(self.current_image_index)
         else:
-            if self.latlon_box.get():
-                self.export_latlon()
+            if self.csv_box.get():
+                self.export_csv()
             if self.pix_box.get():
                 self.export_pix()
             
@@ -370,7 +486,7 @@ class VisionLabelApp:
 
 
 
-    def export_latlon(self):
+    def export_csv(self):
         #lat0,lon0 = self.sicd.sicd_meta.GeoData.ImageCorners.FRFC
         #lat,lon = self.sicd.sicd_meta.GeoData.ImageCorners.LRLC -self.sicd.sicd_meta.GeoData.ImageCorners.FRFC
         #print(self.sicd.sicd_meta.GeoData.ImageCorners.LRLC -self.sicd.sicd_meta.GeoData.ImageCorners.FRFC, self.sicd.sicd_meta.GeoData.ImageCorners.LRFC -self.sicd.sicd_meta.GeoData.ImageCorners.FRLC)
@@ -409,8 +525,6 @@ class VisionLabelApp:
             latlonDF.loc[len(latlonDF)] = latlon_arr
         latlonDF.drop_duplicates(keep='first', inplace=True)
         latlonDF.to_csv(csv, index=False)
-
-
 
 def main():
     root = tk.Tk()
