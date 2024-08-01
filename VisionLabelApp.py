@@ -58,6 +58,8 @@ class VisionLabelApp:
         button_frame.pack(side='top')
         remove_button = tk.Button(button_frame, text="Remove Image", command=self.remove_image)
         remove_button.pack(side=tk.RIGHT)
+        grid_chip_button = tk.Button(button_frame, text="Create PNG Grid", command=self.png_grid_chip)
+        grid_chip_button.pack(side=tk.LEFT)
         chip_button = tk.Button(button_frame, text="Export Chips", command=self.chip)
         chip_button.pack(side=tk.LEFT)
         chip_options_frame = tk.Frame(button_frame)
@@ -170,16 +172,56 @@ class VisionLabelApp:
                     os.makedirs(f"{dir_path}/sicds", exist_ok=True)
                     chip_sicd.create_chip(self.sicd, out_directory=f"{dir_path}/sicds", 
                                           row_limits=[shape_coords[0],shape_coords[2]], col_limits=[shape_coords[1], shape_coords[3]], check_existence=False)
+    
+    def png_grid_chip(self, grid_size=1024):
+
+        w, h = self.image.width, self.image.height
+        sub_grid = grid_size//2
+        w_, h_ = w//sub_grid, h//sub_grid
+        file_path = self.image_paths[self.current_image_index]
+        dir_path = os.path.dirname(file_path)
+        file_name = os.path.basename(file_path)
+        os.makedirs(f"{dir_path}/{file_name}_grid")
+        for j in range(h_-1):
+            for i in range(w_-1):
+                left = i*sub_grid
+                upper =j*sub_grid
+                right = left+grid_size
+                lower = upper+grid_size
+                cropped_image = self.image.crop((left, upper, right, lower))
+                cropped_image.save(f"{dir_path}/{file_name}_grid/{file_name.split('.')[0]}_{j}_{i}.png")
+                # cropped_image.save(f"{dir_path}/{file_name}_grid/{file_name.split('.')[0]}_{left}-{right}_{upper}-{lower}.png")
+        if w//sub_grid != 0:
+            right = w
+            left = right-grid_size
+            i+=1
+            for j in range(h_-1):
+                upper =j*sub_grid
+                lower = upper+grid_size
+                cropped_image = self.image.crop((left, upper, right, lower))
+                cropped_image.save(f"{dir_path}/{file_name}_grid/{file_name.split('.')[0]}_{j}_{i}.png")
+                # cropped_image.save(f"{dir_path}/{file_name}_grid/{file_name.split('.')[0]}_{left}-{right}_{upper}-{lower}.png")
+        if h//sub_grid!= 0:
+            lower = h
+            upper =lower-grid_size
+            j+=1
+            for i in range(w_-1):
+                left = i*sub_grid
+                right = left+grid_size
+                cropped_image = self.image.crop((left, upper, right, lower))
+                cropped_image.save(f"{dir_path}/{file_name}_grid/{file_name.split('.')[0]}_{j}_{i}.png")
+                # cropped_image.save(f"{dir_path}/{file_name}_grid/{file_name.split('.')[0]}_{left}-{right}_{upper}-{lower}.png")
+        if (h//sub_grid!= 0) and (w//sub_grid != 0):
+            right=w
+            lower=h
+            left = right-grid_size
+            upper =lower-grid_size
+            i+=1
+            cropped_image = self.image.crop((left, upper, right, lower))
+            cropped_image.save(f"{dir_path}/{file_name}_grid/{file_name.split('.')[0]}_{j}_{i}.png")
+            # cropped_image.save(f"{dir_path}/{file_name}_grid/{file_name.split('.')[0]}_{left}-{right}_{upper}-{lower}.png")
 
 
-    # def zoom(self, event):
-    #     x = self.canvas.canvasx(event.x)
-    #     y = self.canvas.canvasy(event.y)
-    #     factor = 1.001**event.delta 
-    #     self.canvas.scale(tk.ALL, x,y,factor,factor)
-    #     self.zoom_level *= factor
-        
-    #     self.update_image()
     def wheel(self, event):
         ''' Zoom with mouse wheel '''
         x = self.canvas.canvasx(event.x)
