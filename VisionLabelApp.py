@@ -43,6 +43,8 @@ class VisionLabelApp:
         self.r0.pack(anchor= tk.W)
         self.r1 = tk.Radiobutton(radio_frame, text="Lines", variable=self.radio, value=1)
         self.r1.pack(anchor= tk.W)
+        self.r2 = tk.Radiobutton(radio_frame, text="Pan", variable=self.radio, value=2)
+        self.r2.pack(anchor= tk.W)
 
         self.radio.set(0)
 
@@ -115,7 +117,7 @@ class VisionLabelApp:
         self.canvas.bind("<ButtonRelease-1>", self.on_button_release)
 
         # Initial zoom level and pan offset
-        self.zoom_level = 1.0
+        # self.zoom_level = 1.0
         self.offset_x = 0
         self.offset_y = 0
 
@@ -139,39 +141,35 @@ class VisionLabelApp:
     def class_label_down(self, event):
         self.txt.set(int(self.txt.get())-1)
 
+    def get_shape_coords(self, shape):
+        w, h = self.image.width, self.image.height
+        # print(w, h)
+        x, y = self.canvas.coords(self.container)[0], self.canvas.coords(self.container)[1]
+        x1,y1,x2,y2 = self.canvas.coords(shape)
+        coords = np.array([x1-x, y1-y, x2-x, y2-y])/self.imscale
+        coords[0] = np.max([0, coords[0]])
+        coords[1] = np.max([0, coords[1]])
+        coords[2] = np.min([w, coords[2]])
+        coords[3] = np.min([h, coords[3]])
+        return coords
+
+    
     def chip(self):
         for i, shape in enumerate(self.shapes):
             if self.shape_type[i] == 0:
-                x1, y1, x2, y2 = self.canvas.coords(shape)
-                x, y = self.width*self.zoom_level, self.height*self.zoom_level
-                w, h = self.image.width, self.image.height
-
-                x_start, y_start = w*x1/x, h*y1/y
-                x_end, y_end = w*x2/x, h*y2/y
-
-                print("")
-                print("")
-
-                print(x1, y1, x2, y2)
-                print(x_start, x_end)
-                print(y_start, y_end)
-                print(x, y)
-                print(w,h)
-                print(self.bbox)
-                print(self.zoom_level, self.imscale)
-                print((self.bbox[0]+x_start))
-                bbox_x = self.bbox[2]-self.bbox[0]
-                print(w/bbox_x)
-
-                # if self.chip_png_var.get():
-
-                    
-                
-                # if self.chip_sicd_var.get():
-                #     chip_sicd.create_chip()
-
-
-
+                shape_coords = self.get_shape_coords(shape)
+                file_path = self.image_paths[self.current_image_index]
+                dir_path = os.path.dirname(file_path)
+                file_name = os.path.basename(file_path)
+                if self.chip_png_var.get():
+                    os.makedirs(f"{dir_path}/pngs", exist_ok=True)
+                    cropped_image = self.image.crop(shape_coords)
+                    cropped_image.save(f"{dir_path}/pngs/{file_name.split('.')[0]}_{shape_coords[0]}-{shape_coords[2]}_{shape_coords[1]}-{shape_coords[3]}.png")
+                    # os.rename(f"{dir_path}/pngs/{file_name.split('.')[0]}.png",f"{dir_path}/pngs/{file_name.split('.')[0]}{i}.png")
+                if self.chip_sicd_var.get():
+                    os.makedirs(f"{dir_path}/sicds", exist_ok=True)
+                    chip_sicd.create_chip(self.sicd, out_directory=f"{dir_path}/sicds", 
+                                          row_limits=[shape_coords[0],shape_coords[2]], col_limits=[shape_coords[1], shape_coords[3]], check_existence=False)
 
 
     # def zoom(self, event):
@@ -280,6 +278,7 @@ class VisionLabelApp:
                 self.chip_sicd_box.config(state=tk.NORMAL)
             elif file_path.endswith((".jpg", ".jpeg", ".png")):
                 self.image = Image.open(file_path)
+                self.chip_sicd_var.set(0)
                 self.chip_sicd_box.config(state=tk.DISABLED)
             
 
@@ -287,13 +286,13 @@ class VisionLabelApp:
             canvas_width = self.canvas.winfo_width()
             canvas_height = self.canvas.winfo_height()
             self.width, self.height = self.image.size
-            zoom_x = canvas_width / self.width
-            zoom_y = canvas_height / self.height
-            self.zoom_level = min(zoom_x, zoom_y)
+            # zoom_x = canvas_width / self.width
+            # zoom_y = canvas_height / self.height
+            # zoom_level = min(zoom_x, zoom_y)
             
 
-            self.image_tk = ImageTk.PhotoImage(self.image.resize((int(self.width * self.zoom_level),
-                                                                int(self.height * self.zoom_level))))
+            # self.image_tk = ImageTk.PhotoImage(self.image.resize((int(self.width * self.imscale),
+            #                                                     int(self.height * self.imscale))))
             self.imscale = 1.0  # scale for the canvaas image
             self.delta = 1.3  # zoom magnitude
             # Put image into container rectangle and use it to set proper coordinates to the image
@@ -303,6 +302,7 @@ class VisionLabelApp:
             if self.image_id:
                 self.canvas.delete(self.image_id)  # Remove previous image from canvas
             # self.image_id = self.canvas.create_image(0, 0, anchor=tk.NW, image=self.image_tk)
+            # self.canvas.scale('all', 0, 0, zoom_level, zoom_level)  # rescale all canvas objects
             self.update_image()
             
             self.text_box.config(state=tk.NORMAL)
@@ -399,13 +399,17 @@ class VisionLabelApp:
         self.start_x = x
         self.start_y = y
         radio = self.radio.get()
-        if radio == 0:
-            self.rect = self.canvas.create_rectangle(x, y, x, y, fill="", outline="red")
-            self.shapes.append(self.rect)
-        elif radio ==1:
-            self.line = self.canvas.create_line(x,y,x,y, fill='red', width=3)
-            self.shapes.append(self.line)
-        self.shape_type.append(radio)
+        if radio <2:
+            if radio == 0:
+                self.rect = self.canvas.create_rectangle(x, y, x, y, fill="", outline="red")
+                self.shapes.append(self.rect)
+            elif radio ==1:
+                self.line = self.canvas.create_line(x,y,x,y, fill='red', width=3)
+                self.shapes.append(self.line)
+            self.shape_type.append(radio)
+        elif radio ==2 :
+            ''' Remember previous coordinates for scrolling with the mouse '''
+            self.canvas.scan_mark(event.x, event.y)
 
     def on_move_press(self, event):
         # expand rectangle as you drag the mouse
@@ -415,11 +419,25 @@ class VisionLabelApp:
             self.canvas.coords(self.rect, self.start_x, self.start_y, x, y)
         elif self.radio.get() ==1:
             self.canvas.coords(self.line, self.start_x, self.start_y, x, y)
+        elif self.radio.get() ==2:
+            ''' Drag (move) canvas to the new position '''
+            self.canvas.scan_dragto(event.x, event.y, gain=1)
+            self.update_image()  # redraw the image
+
+    def move_from(self, event):
+        ''' Remember previous coordinates for scrolling with the mouse '''
+        self.canvas.scan_mark(event.x, event.y)
+
+    def move_to(self, event):
+        ''' Drag (move) canvas to the new position '''
+        self.canvas.scan_dragto(event.x, event.y, gain=1)
+        self.show_image()  # redraw the image
+
         
 
     def on_button_release(self, event):
         # clear the rectangle
-        self.rect_zoom = self.zoom_level
+        self.rect_zoom = self.imscale
         self.rect = None
         self.line = None
 
@@ -428,10 +446,13 @@ class VisionLabelApp:
             self.canvas.delete(self.shapes.pop())
     
     def middle_click(self, event):
-        if self.radio.get()==1:
-            self.radio.set(0)
-        elif self.radio.get()==0:
+        if self.radio.get()==0:
             self.radio.set(1)
+        elif self.radio.get()==1:
+            self.radio.set(2)
+        elif self.radio.get()==2:
+            self.radio.set(0)
+
 
 
     def clear_rect(self):
@@ -460,14 +481,8 @@ class VisionLabelApp:
         #     latlonDF = pd.DataFrame(columns=column_names)
         vals = []
         for i, shape in enumerate(self.shapes):
-            # print(self.shape_type[i])
-            x1, y1, x2, y2 = self.canvas.coords(shape)
-            # print(x,y, w,h)
-            # print([w*x1/x, h*y1/y],[w*x2/x, h*y2/y])
-            # print(xy_latlon([w*x1/x, h*y1/y]),xy_latlon([w*x2/x, h*y2/y]))
-            # print(xy_latlon([w*x1/x, h*y1/y]),xy_latlon([w*x2/x, h*y2/y]))
-
-            vals.append([(w*x1/x +w*x2/x)/(2*w),(h*y1/y +h*y2/y)/(2*h), abs(w*x1/x-w*x2/x)/(w),abs(h*y1/y -h*y2/y)/(h)])
+            x1, y1, x2, y2 = self.get_shape_coords(shape)
+            vals.append([(x1 +x2)/(2*w),(y1 +y2)/(2*h), abs(x1-x2)/(w),abs(y1 -y2)/(h)])
         output_file = self.image_paths[self.current_image_index].replace("png","txt")
         # print(output_file)
         if len(vals) == 0:
@@ -484,47 +499,30 @@ class VisionLabelApp:
                 f.write(f"{str(self.txt.get())} {str(i[0])} {str(i[1])} {str(i[2])} {str(i[3])}")
 
 
-
-
     def export_csv(self):
-        #lat0,lon0 = self.sicd.sicd_meta.GeoData.ImageCorners.FRFC
-        #lat,lon = self.sicd.sicd_meta.GeoData.ImageCorners.LRLC -self.sicd.sicd_meta.GeoData.ImageCorners.FRFC
-        #print(self.sicd.sicd_meta.GeoData.ImageCorners.LRLC -self.sicd.sicd_meta.GeoData.ImageCorners.FRFC, self.sicd.sicd_meta.GeoData.ImageCorners.LRFC -self.sicd.sicd_meta.GeoData.ImageCorners.FRLC)
-        #print(self.sicd.sicd_meta.GeoData.ImageCorners.FRFC,self.sicd.sicd_meta.GeoData.ImageCorners.FRLC,self.sicd.sicd_meta.GeoData.ImageCorners.LRLC,self.sicd.sicd_meta.GeoData.ImageCorners.LRFC)
         x, y = self.width, self.height
         w, h = self.image.width, self.image.height
-        def xy_latlon(xy):
-            # coords = point_projection.image_to_ground_geo(xy, self.sicd.sicd_meta, projection_type='PLANE')
-            # return coords[:2]
-            return xy[:2]
         columns = ['center', "corner0","corner1", "corner2", "corner3"]
         column_names = ["name"]
-        column_names.extend([f"{column}_{latlon}" for column in columns for latlon in ['x', 'y']])
+        column_names.extend([f"{column}_{xy}" for column in columns for xy in ['x', 'y']])
         # column_names.extend([f"{column}_{latlon}" for column in columns for latlon in ['lat', 'lon']])
-        csv = os.path.join(self.directory,"bounding_box_latlon.csv")
+        csv = os.path.join(self.directory,"bounding_box.csv")
         if os.path.isfile(csv):
-            latlonDF = pd.read_csv(csv)
+            df = pd.read_csv(csv)
         else:
-            latlonDF = pd.DataFrame(columns=column_names)
+            df = pd.DataFrame(columns=column_names)
         for i, shape in enumerate(self.shapes):
-            # print(self.shape_type[i])
-            x1, y1, x2, y2 = self.canvas.coords(shape)
-            # print(x,y, w,h)
-            # print([w*x1/x, h*y1/y],[w*x2/x, h*y2/y])
-            # print(xy_latlon([w*x1/x, h*y1/y]),xy_latlon([w*x2/x, h*y2/y]))
+            x1, y1,x2,y2 = self.get_shape_coords(shape)
             if self.shape_type[i] == 0:
-                latlon_arr = np.concatenate([[os.path.basename(self.image_paths[self.current_image_index])],
-                                           xy_latlon([w/x*(x1+x2)/2, h/y*(y1+y2)/2]),
-                                           xy_latlon([w*x1/x, h*y1/y]),xy_latlon([w*x2/x, h*y1/y]),
-                                           xy_latlon([w*x2/x, h*y2/y]),xy_latlon([w*x1/x, h*y2/y])])
+                xy_arr = np.concatenate([[os.path.basename(self.image_paths[self.current_image_index])],
+                                           [(x1+x2)/2, (y1+y2)/2, x1,y1, x2,y1, x2,y2, x1,y2]])
             else:
-                latlon_arr = np.concatenate([[os.path.basename(self.image_paths[self.current_image_index])],
-                                           xy_latlon([w/x*(x1+x2)/2, h/y*(y1+y2)/2]),
-                                           xy_latlon([w*x1/x, h*y1/y]),xy_latlon([w*x2/x, h*y2/y]),
+                xy_arr = np.concatenate([[os.path.basename(self.image_paths[self.current_image_index])],
+                                           [(x1+x2)/2, (y1+y2)/2, x1,y1, x2,y2],
                                            [np.nan,np.nan, np.nan, np.nan]])
-            latlonDF.loc[len(latlonDF)] = latlon_arr
-        latlonDF.drop_duplicates(keep='first', inplace=True)
-        latlonDF.to_csv(csv, index=False)
+            df.loc[len(df)] = xy_arr
+        df.drop_duplicates(keep='first', inplace=True)
+        df.to_csv(csv, index=False)
 
 def main():
     root = tk.Tk()
