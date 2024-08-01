@@ -166,6 +166,7 @@ class VisionLabelApp:
                 if self.chip_png_var.get():
                     os.makedirs(f"{dir_path}/pngs", exist_ok=True)
                     cropped_image = self.image.crop(shape_coords)
+                    shape_coords = [int(i) for i in shape_coords]
                     cropped_image.save(f"{dir_path}/pngs/{file_name.split('.')[0]}_{shape_coords[0]}-{shape_coords[2]}_{shape_coords[1]}-{shape_coords[3]}.png")
                     # os.rename(f"{dir_path}/pngs/{file_name.split('.')[0]}.png",f"{dir_path}/pngs/{file_name.split('.')[0]}{i}.png")
                 if self.chip_sicd_var.get():
@@ -173,7 +174,7 @@ class VisionLabelApp:
                     chip_sicd.create_chip(self.sicd, out_directory=f"{dir_path}/sicds", 
                                           row_limits=[shape_coords[0],shape_coords[2]], col_limits=[shape_coords[1], shape_coords[3]], check_existence=False)
     
-    def png_grid_chip(self, grid_size=1024):
+    def png_grid_chip(self, grid_size=512):
 
         w, h = self.image.width, self.image.height
         sub_grid = grid_size//2
@@ -191,7 +192,7 @@ class VisionLabelApp:
                 cropped_image = self.image.crop((left, upper, right, lower))
                 cropped_image.save(f"{dir_path}/{file_name}_grid/{file_name.split('.')[0]}_{j}_{i}.png")
                 # cropped_image.save(f"{dir_path}/{file_name}_grid/{file_name.split('.')[0]}_{left}-{right}_{upper}-{lower}.png")
-        if w//sub_grid != 0:
+        if w%sub_grid != 0:
             right = w
             left = right-grid_size
             i+=1
@@ -201,7 +202,7 @@ class VisionLabelApp:
                 cropped_image = self.image.crop((left, upper, right, lower))
                 cropped_image.save(f"{dir_path}/{file_name}_grid/{file_name.split('.')[0]}_{j}_{i}.png")
                 # cropped_image.save(f"{dir_path}/{file_name}_grid/{file_name.split('.')[0]}_{left}-{right}_{upper}-{lower}.png")
-        if h//sub_grid!= 0:
+        if h%sub_grid!= 0:
             lower = h
             upper =lower-grid_size
             j+=1
@@ -211,7 +212,7 @@ class VisionLabelApp:
                 cropped_image = self.image.crop((left, upper, right, lower))
                 cropped_image.save(f"{dir_path}/{file_name}_grid/{file_name.split('.')[0]}_{j}_{i}.png")
                 # cropped_image.save(f"{dir_path}/{file_name}_grid/{file_name.split('.')[0]}_{left}-{right}_{upper}-{lower}.png")
-        if (h//sub_grid!= 0) and (w//sub_grid != 0):
+        if (h%sub_grid!= 0) and (w%sub_grid != 0):
             right=w
             lower=h
             left = right-grid_size
@@ -328,10 +329,6 @@ class VisionLabelApp:
             canvas_width = self.canvas.winfo_width()
             canvas_height = self.canvas.winfo_height()
             self.width, self.height = self.image.size
-            # zoom_x = canvas_width / self.width
-            # zoom_y = canvas_height / self.height
-            # zoom_level = min(zoom_x, zoom_y)
-            
 
             # self.image_tk = ImageTk.PhotoImage(self.image.resize((int(self.width * self.imscale),
             #                                                     int(self.height * self.imscale))))
@@ -373,12 +370,13 @@ class VisionLabelApp:
         self.image_change(increment=-1)
     
     def import_bounding_boxes(self):
-        text_file_name = self.image_paths[self.current_image_index].replace("png","txt")
+        text_file_name = self.image_paths[self.current_image_index].replace(".png",".txt").replace(".ntf", ".txt")
         if text_file_name in [(self.directory + '/' + i) for i in os.listdir(self.directory)]:
             with open(text_file_name, "r") as f:
                 lines = f.readlines()
             for templine in lines:
                 line = templine.split(" ")
+                print(line)
                 if len(line)!=5:
                     print("bounding box file error")
                     return 
@@ -475,8 +473,6 @@ class VisionLabelApp:
         self.canvas.scan_dragto(event.x, event.y, gain=1)
         self.show_image()  # redraw the image
 
-        
-
     def on_button_release(self, event):
         # clear the rectangle
         self.rect_zoom = self.imscale
@@ -489,61 +485,32 @@ class VisionLabelApp:
     
     def middle_click(self, event):
         if self.radio.get()==0:
-            self.radio.set(1)
-        elif self.radio.get()==1:
             self.radio.set(2)
+        elif self.radio.get()==1:
+            self.radio.set(0)
         elif self.radio.get()==2:
             self.radio.set(0)
-
-
 
     def clear_rect(self):
         while self.shapes:
             self.canvas.delete(self.shapes.pop())
 
     def export_pix(self):
-        #lat0,lon0 = self.sicd.sicd_meta.GeoData.ImageCorners.FRFC
-        #lat,lon = self.sicd.sicd_meta.GeoData.ImageCorners.LRLC -self.sicd.sicd_meta.GeoData.ImageCorners.FRFC
-        #print(self.sicd.sicd_meta.GeoData.ImageCorners.LRLC -self.sicd.sicd_meta.GeoData.ImageCorners.FRFC, self.sicd.sicd_meta.GeoData.ImageCorners.LRFC -self.sicd.sicd_meta.GeoData.ImageCorners.FRLC)
-        #print(self.sicd.sicd_meta.GeoData.ImageCorners.FRFC,self.sicd.sicd_meta.GeoData.ImageCorners.FRLC,self.sicd.sicd_meta.GeoData.ImageCorners.LRLC,self.sicd.sicd_meta.GeoData.ImageCorners.LRFC)
-        x, y = self.width, self.height
         w, h = self.image.width, self.image.height
-        def xy_latlon(xy):
-            # coords = point_projection.image_to_ground_geo(xy, self.sicd.sicd_meta, projection_type='PLANE')
-            # return coords[:2]
-            return xy[:2]
-        columns = ['center', "corner0","corner1", "corner2", "corner3"]
-        column_names = ["name"]
-        column_names.extend([f"{column}_{latlon}" for column in columns for latlon in ['x', 'y']])
-        # column_names.extend([f"{column}_{latlon}" for column in columns for latlon in ['lat', 'lon']])
-        # csv = os.path.join(self.directory,"bounding_box_latlon.csv")
-        # if os.path.isfile(csv):
-        #     latlonDF = pd.read_csv(csv)
-        # else:
-        #     latlonDF = pd.DataFrame(columns=column_names)
         vals = []
         for i, shape in enumerate(self.shapes):
             x1, y1, x2, y2 = self.get_shape_coords(shape)
             vals.append([(x1 +x2)/(2*w),(y1 +y2)/(2*h), abs(x1-x2)/(w),abs(y1 -y2)/(h)])
-        output_file = self.image_paths[self.current_image_index].replace("png","txt")
-        # print(output_file)
+        output_file = self.image_paths[self.current_image_index].replace(".png",".txt").replace(".ntf",".txt")
         if len(vals) == 0:
             return 
         with open(output_file, "w") as f:
-            start = True
-
+            # print(vals)
             for i in vals:
-                if start:
-                    start = False
-                else:
-                    f.write('\n')
-
-                f.write(f"{str(self.txt.get())} {str(i[0])} {str(i[1])} {str(i[2])} {str(i[3])}")
+                f.write(f"{str(self.txt.get())} {str(i[0])} {str(i[1])} {str(i[2])} {str(i[3])}\n")
 
 
     def export_csv(self):
-        x, y = self.width, self.height
-        w, h = self.image.width, self.image.height
         columns = ['center', "corner0","corner1", "corner2", "corner3"]
         column_names = ["name"]
         column_names.extend([f"{column}_{xy}" for column in columns for xy in ['x', 'y']])
