@@ -58,6 +58,12 @@ class VisionLabelApp:
         button_frame.pack(side='top')
         remove_button = tk.Button(button_frame, text="Remove Image", command=self.remove_image)
         remove_button.pack(side=tk.RIGHT)
+        grid_chip_label = tk.Label(button_frame, text="Grid Chip Size")
+        grid_chip_label.pack(side=tk.LEFT)
+        self.grid_chip_size = tk.IntVar()
+        self.grid_chip_entry = tk.Entry(button_frame, bd=3, width=10,textvariable=self.grid_chip_size)
+        self.grid_chip_entry.pack(side=tk.LEFT)
+        self.grid_chip_size.set(512)
         grid_chip_button = tk.Button(button_frame, text="Create PNG Grid", command=self.png_grid_chip)
         grid_chip_button.pack(side=tk.LEFT)
         chip_button = tk.Button(button_frame, text="Export Chips", command=self.chip)
@@ -137,6 +143,8 @@ class VisionLabelApp:
         self.shape_type = []
 
     def num_key(self, event):
+        if 'entry' in str(self.root.focus_get()):
+            return
         self.txt.set(event.char)
     def class_label_up(self, event):
         self.txt.set(int(self.txt.get())+1)
@@ -174,8 +182,10 @@ class VisionLabelApp:
                     chip_sicd.create_chip(self.sicd, out_directory=f"{dir_path}/sicds", 
                                           row_limits=[shape_coords[0],shape_coords[2]], col_limits=[shape_coords[1], shape_coords[3]], check_existence=False)
     
-    def png_grid_chip(self, grid_size=512):
-
+    def png_grid_chip(self):
+        grid_size = self.grid_chip_size.get()
+        print(grid_size)
+        raise Exception
         w, h = self.image.width, self.image.height
         sub_grid = grid_size//2
         w_, h_ = w//sub_grid, h//sub_grid
