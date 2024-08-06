@@ -64,7 +64,7 @@ class VisionLabelApp:
         self.grid_chip_entry = tk.Entry(button_frame, bd=3, width=10,textvariable=self.grid_chip_size)
         self.grid_chip_entry.pack(side=tk.LEFT)
         self.grid_chip_size.set(512)
-        grid_chip_button = tk.Button(button_frame, text="Create PNG Grid", command=self.png_grid_chip)
+        grid_chip_button = tk.Button(button_frame, text="Export Chip Grid", command=self.grid_chip)
         grid_chip_button.pack(side=tk.LEFT)
         chip_button = tk.Button(button_frame, text="Export Chips", command=self.chip)
         chip_button.pack(side=tk.LEFT)
@@ -182,26 +182,31 @@ class VisionLabelApp:
                     chip_sicd.create_chip(self.sicd, out_directory=f"{dir_path}/sicds", 
                                           row_limits=[shape_coords[0],shape_coords[2]], col_limits=[shape_coords[1], shape_coords[3]], check_existence=False)
     
-    def png_grid_chip(self):
+    def grid_chip(self):
         grid_size = self.grid_chip_size.get()
-        print(grid_size)
-        raise Exception
         w, h = self.image.width, self.image.height
         sub_grid = grid_size//2
         w_, h_ = w//sub_grid, h//sub_grid
         file_path = self.image_paths[self.current_image_index]
         dir_path = os.path.dirname(file_path)
         file_name = os.path.basename(file_path)
-        os.makedirs(f"{dir_path}/{file_name}_grid")
+        if self.chip_png_var.get():
+            os.makedirs(f"{dir_path}/{file_name}_png_grid")
+        if self.chip_sicd_var.get():
+            os.makedirs(f"{dir_path}/{file_name}_sicd_grid")
         for j in range(h_-1):
             for i in range(w_-1):
                 left = i*sub_grid
                 upper =j*sub_grid
                 right = left+grid_size
                 lower = upper+grid_size
-                cropped_image = self.image.crop((left, upper, right, lower))
-                cropped_image.save(f"{dir_path}/{file_name}_grid/{file_name.split('.')[0]}_{j}_{i}.png")
-                # cropped_image.save(f"{dir_path}/{file_name}_grid/{file_name.split('.')[0]}_{left}-{right}_{upper}-{lower}.png")
+                if self.chip_png_var.get():
+                    cropped_image = self.image.crop((left, upper, right, lower))
+                    cropped_image.save(f"{dir_path}/{file_name}_png_grid/{file_name.split('.')[0]}_{j}_{i}.png")
+                    # cropped_image.save(f"{dir_path}/{file_name}_png_grid/{file_name.split('.')[0]}_{left}-{right}_{upper}-{lower}.png")
+                if self.chip_sicd_var.get():
+                    chip_sicd.create_chip(self.sicd, output_file=f"{dir_path}/{file_name}_sicd_grid/{file_name.split('.')[0]}_{j}_{i}.nitf",
+                                            row_limits=[left,right], col_limits=[upper, lower], check_existence=False)
         if w%sub_grid != 0:
             right = w
             left = right-grid_size
@@ -209,9 +214,13 @@ class VisionLabelApp:
             for j in range(h_-1):
                 upper =j*sub_grid
                 lower = upper+grid_size
-                cropped_image = self.image.crop((left, upper, right, lower))
-                cropped_image.save(f"{dir_path}/{file_name}_grid/{file_name.split('.')[0]}_{j}_{i}.png")
-                # cropped_image.save(f"{dir_path}/{file_name}_grid/{file_name.split('.')[0]}_{left}-{right}_{upper}-{lower}.png")
+                if self.chip_png_var.get():
+                    cropped_image = self.image.crop((left, upper, right, lower))
+                    cropped_image.save(f"{dir_path}/{file_name}_png_grid/{file_name.split('.')[0]}_{j}_{i}.png")
+                    # cropped_image.save(f"{dir_path}/{file_name}_grid/{file_name.split('.')[0]}_{left}-{right}_{upper}-{lower}.png")
+                if self.chip_sicd_var.get():
+                    chip_sicd.create_chip(self.sicd, output_file=f"{dir_path}/{file_name}_sicd_grid/{file_name.split('.')[0]}_{j}_{i}.nitf",
+                                            row_limits=[left,right], col_limits=[upper, lower], check_existence=False)
         if h%sub_grid!= 0:
             lower = h
             upper =lower-grid_size
@@ -219,18 +228,26 @@ class VisionLabelApp:
             for i in range(w_-1):
                 left = i*sub_grid
                 right = left+grid_size
-                cropped_image = self.image.crop((left, upper, right, lower))
-                cropped_image.save(f"{dir_path}/{file_name}_grid/{file_name.split('.')[0]}_{j}_{i}.png")
-                # cropped_image.save(f"{dir_path}/{file_name}_grid/{file_name.split('.')[0]}_{left}-{right}_{upper}-{lower}.png")
+                if self.chip_png_var.get():
+                    cropped_image = self.image.crop((left, upper, right, lower))
+                    cropped_image.save(f"{dir_path}/{file_name}_png_grid/{file_name.split('.')[0]}_{j}_{i}.png")
+                    # cropped_image.save(f"{dir_path}/{file_name}_grid/{file_name.split('.')[0]}_{left}-{right}_{upper}-{lower}.png")
+                if self.chip_sicd_var.get():
+                    chip_sicd.create_chip(self.sicd, output_file=f"{dir_path}/{file_name}_sicd_grid/{file_name.split('.')[0]}_{j}_{i}.nitf",
+                                            row_limits=[left,right], col_limits=[upper, lower], check_existence=False)
         if (h%sub_grid!= 0) and (w%sub_grid != 0):
             right=w
             lower=h
             left = right-grid_size
             upper =lower-grid_size
             i+=1
-            cropped_image = self.image.crop((left, upper, right, lower))
-            cropped_image.save(f"{dir_path}/{file_name}_grid/{file_name.split('.')[0]}_{j}_{i}.png")
-            # cropped_image.save(f"{dir_path}/{file_name}_grid/{file_name.split('.')[0]}_{left}-{right}_{upper}-{lower}.png")
+            if self.chip_png_var.get():
+                cropped_image = self.image.crop((left, upper, right, lower))
+                cropped_image.save(f"{dir_path}/{file_name}_png_grid/{file_name.split('.')[0]}_{j}_{i}.png")
+                # cropped_image.save(f"{dir_path}/{file_name}_grid/{file_name.split('.')[0]}_{left}-{right}_{upper}-{lower}.png")
+            if self.chip_sicd_var.get():
+                chip_sicd.create_chip(self.sicd, output_file=f"{dir_path}/{file_name}_sicd_grid/{file_name.split('.')[0]}_{j}_{i}.nitf",
+                                        row_limits=[left,right], col_limits=[upper, lower], check_existence=False)
 
 
     def wheel(self, event):
@@ -257,22 +274,6 @@ class VisionLabelApp:
         
     
     def update_image(self, event=None):
-        # if self.image:
-        #     self.width = self.image.width * self.zoom_level
-        #     self.height = self.image.height * self.zoom_level
-        #     new_width = int(self.width)
-        #     new_height = int(self.height)
-
-        #     # Resize the image
-        #     resized_image = self.image.resize((new_width, new_height), Image.LANCZOS)
-        #     self.image_tk = ImageTk.PhotoImage(resized_image)
-
-        #     # Update the image on canvas
-        #     if self.image_id:
-        #         self.canvas.itemconfig(self.image_id, image=self.image_tk)
-        #         self.canvas.configure(scrollregion=(0, 0, new_width, new_height))
-        #         self.canvas.xview_moveto(self.offset_x / new_width)
-        #         self.canvas.yview_moveto(self.offset_y / new_height)
         ''' Show image on the Canvas '''
         bbox1 = self.canvas.bbox(self.container)  # get image area
         # Remove 1 pixel shift at the sides of the bbox1
@@ -373,6 +374,7 @@ class VisionLabelApp:
             self.show_current_image()
             if self.bb_button.get():
                 self.import_bounding_boxes()
+        self.root.focus_force()
 
     def next_image(self, event=None): 
         self.image_change(increment=1)
@@ -444,6 +446,7 @@ class VisionLabelApp:
 
     def on_button_press(self, event):
         # create rectangle if not yet exist
+        self.root.focus_force()
         x = self.canvas.canvasx(event.x)
         y = self.canvas.canvasy(event.y)
         self.start_x = x
