@@ -514,7 +514,7 @@ class VisionLabelApp:
         for i, shape in enumerate(self.shapes):
             x1, y1, x2, y2 = self.get_shape_coords(shape)
             vals.append([(x1 +x2)/(2*w),(y1 +y2)/(2*h), abs(x1-x2)/(w),abs(y1 -y2)/(h)])
-        output_file = self.image_paths[self.current_image_index].replace(".png",".txt").replace(".ntf",".txt")
+        output_file = self.image_paths[self.current_image_index].replace(".png",".txt").replace(".ntf",".txt").replace(".nitf",".txt")
         if len(vals) == 0:
             return 
         with open(output_file, "w") as f:
