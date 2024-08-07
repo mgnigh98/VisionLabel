@@ -86,7 +86,7 @@ class VisionLabelApp:
         self.bb_button = tk.IntVar()
         self.txt = tk.StringVar()
         self.txt.set(0)
-        self.export_csv_box = tk.Checkbutton(check_box_frame, variable=self.csv_box, text="Export Rectangles CSV", onvalue=1, offvalue=0)
+        self.export_csv_box = tk.Checkbutton(check_box_frame, variable=self.csv_box, text="Export Shapes CSV", onvalue=1, offvalue=0)
         self.export_csv_box.pack(side=tk.RIGHT)
 
         self.textbox_label = tk.Label(text="Class Label")
@@ -340,6 +340,7 @@ class VisionLabelApp:
             canvas_width = self.canvas.winfo_width()
             canvas_height = self.canvas.winfo_height()
             self.width, self.height = self.image.size
+            zoom_level = np.min([canvas_width/self.width, canvas_height/self.height])
 
             # self.image_tk = ImageTk.PhotoImage(self.image.resize((int(self.width * self.imscale),
             #                                                     int(self.height * self.imscale))))
