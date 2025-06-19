@@ -24,8 +24,40 @@ class VisionLabelApp:
         menu_bar = tk.Menu(root)
         file_menu = tk.Menu(menu_bar, tearoff=0)
         file_menu.add_command(label="Open Image", command=self.open_image)
+        file_menu.add_separator()
         file_menu.add_command(label="Exit", command=root.quit)
         menu_bar.add_cascade(label="File", menu=file_menu)
+
+
+        export_menu = tk.Menu(menu_bar, tearoff=0)
+        self.csv_box = tk.IntVar()
+        self.pix_box = tk.IntVar()
+        self.bb_button = tk.IntVar()
+        export_menu.add_checkbutton(label="Export Shapes CSV", variable=self.csv_box, onvalue=1, offvalue=0, command=self.export_csv)
+        export_menu.add_checkbutton(label="Export Rectangles TXT", variable=self.pix_box, onvalue=1, offvalue=0, command=self.export_pix)
+        export_menu.add_checkbutton(label="Import Bounding Boxes", variable=self.bb_button, onvalue=1, offvalue=0, command=self.import_bounding_boxes)
+        export_menu.add_separator()
+        
+        self.grid_chip_size = tk.IntVar(value=512)
+        export_menu.add_command(label="Export Chip Grid", command=self.grid_chip)
+        export_menu.add_separator()
+
+        self.chip_png_var = tk.IntVar()
+        self.chip_sicd_var = tk.IntVar()
+        export_menu.add_command(label="Export Chips", command=self.chip)
+        export_menu.add_checkbutton(label="Chip to PNG", variable=self.chip_png_var, onvalue=1, offvalue=0)
+        export_menu.add_checkbutton(label="Chip to SICD", variable=self.chip_sicd_var, onvalue=1, offvalue=0)
+
+        menu_bar.add_cascade(label="Export/Import", menu=export_menu)
+        
+        options_menu = tk.Menu(menu_bar, tearoff=0)
+        options_menu.add_command(label="Remove Image", command=self.remove_image)
+        options_menu.add_separator()
+        self.fast_load_var = tk.IntVar()
+        options_menu.add_checkbutton(label="Fast Load Large SICDs (May break other functions)", variable=self.fast_load_var, onvalue=1, offvalue=0)
+        menu_bar.add_cascade(label="Options", menu=options_menu)
+        
+        
         root.config(menu=menu_bar)
 
         # Add label for displaying file name
@@ -54,50 +86,18 @@ class VisionLabelApp:
         self.next_button = tk.Button(self.root, text="Next", command=self.next_image)
         self.next_button.pack(side=tk.RIGHT)
         
-        button_frame = tk.Frame(root)
-        button_frame.pack(side='top')
-        remove_button = tk.Button(button_frame, text="Remove Image", command=self.remove_image)
-        remove_button.pack(side=tk.RIGHT)
-        grid_chip_label = tk.Label(button_frame, text="Grid Chip Size")
-        grid_chip_label.pack(side=tk.LEFT)
-        self.grid_chip_size = tk.IntVar()
-        self.grid_chip_entry = tk.Entry(button_frame, bd=3, width=10,textvariable=self.grid_chip_size)
-        self.grid_chip_entry.pack(side=tk.LEFT)
-        self.grid_chip_size.set(512)
-        grid_chip_button = tk.Button(button_frame, text="Export Chip Grid", command=self.grid_chip)
-        grid_chip_button.pack(side=tk.LEFT)
-        chip_button = tk.Button(button_frame, text="Export Chips", command=self.chip)
-        chip_button.pack(side=tk.LEFT)
-        chip_options_frame = tk.Frame(button_frame)
-        chip_options_frame.pack(side=tk.RIGHT)
-        self.chip_png_var = tk.IntVar()
-        self.chip_sicd_var = tk.IntVar()
-        self.chip_png_box = tk.Checkbutton(chip_options_frame, variable=self.chip_png_var, text="Chip to PNG", onvalue=1, offvalue=0)
-        self.chip_png_box.pack(side=tk.TOP)
-        self.chip_sicd_box = tk.Checkbutton(chip_options_frame, variable=self.chip_sicd_var, text="Chip to SICD", onvalue=1, offvalue=0)
-        self.chip_sicd_box.pack(side=tk.BOTTOM)
-        
 
         check_box_frame = tk.Frame(top_frame)
         check_box_frame.pack(side=tk.LEFT)
         
-        self.csv_box = tk.IntVar()
-        self.pix_box = tk.IntVar()
-        self.bb_button = tk.IntVar()
+        
         self.txt = tk.StringVar()
         self.txt.set(0)
-        self.export_csv_box = tk.Checkbutton(check_box_frame, variable=self.csv_box, text="Export Shapes CSV", onvalue=1, offvalue=0)
-        self.export_csv_box.pack(side=tk.RIGHT)
-
         self.textbox_label = tk.Label(text="Class Label")
         self.textbox_label.pack(side=tk.TOP)
         self.textbox = tk.Entry(text="Class Label", textvariable=self.txt)
         self.textbox.pack(side=tk.TOP)
-        self.export_pix_box = tk.Checkbutton(check_box_frame, variable=self.pix_box, text="Export Rectangles TXT", onvalue=1, offvalue=0)
-        self.export_pix_box.pack(side=tk.LEFT)
-        self.import_bb_button = tk.Checkbutton(check_box_frame, variable=self.bb_button, text="Import Bounding Boxes", onvalue=1, offvalue=0, command=self.import_bounding_boxes)
-        self.import_bb_button.pack(side=tk.TOP)
-
+                
         self.canvas = tk.Canvas(self.root, bg="black")
         self.canvas.pack(fill=tk.BOTH, expand=tk.YES)
 
@@ -183,6 +183,39 @@ class VisionLabelApp:
                                           row_limits=[shape_coords[0],shape_coords[2]], col_limits=[shape_coords[1], shape_coords[3]], check_existence=False)
     
     def grid_chip(self):
+       
+        def get_grid_size():
+            popup = tk.Toplevel()
+            popup.title("Grid Size")
+            popup.geometry("200x100")
+            popup.transient(self.root)
+            popup.grab_set()
+
+            label = tk.Label(popup, text="Enter grid size:")
+            label.pack(pady=5)
+
+            size_var = tk.StringVar(value=str(self.grid_chip_size.get()))
+            entry = tk.Entry(popup, textvariable=size_var)
+            entry.pack(pady=5)
+
+            def set_size():
+                try:
+                    size = int(size_var.get())
+                    self.grid_chip_size.set(size)
+                    popup.destroy()
+                except ValueError:
+                    tk.messagebox.showerror("Error", "Please enter a valid number")
+
+            button = tk.Button(popup, text="OK", command=set_size)
+            button.pack(pady=5)
+
+            # Center popup window
+            popup.update_idletasks()
+            x = self.root.winfo_x() + (self.root.winfo_width() // 10) - (popup.winfo_width() // 2)
+            y = self.root.winfo_y() + (self.root.winfo_height() // 10) - (popup.winfo_height() // 2)
+            popup.geometry(f"+{x}+{y}")
+
+        get_grid_size()
         grid_size = self.grid_chip_size.get()
         w, h = self.image.width, self.image.height
         sub_grid = grid_size//2
@@ -327,7 +360,12 @@ class VisionLabelApp:
             file_path = self.image_paths[self.current_image_index]
             if file_path.endswith(('.ntf', '.nitf')):
                 self.sicd = SICDReader(file_path)
-                sar_image = self.sicd[:]
+                step = 1
+                if self.fast_load_var.get():
+                    file_size = os.path.getsize(file_path) // (1024**2)
+                    if file_size > 100:
+                        step = np.min(file_size//50, 16)
+                sar_image = self.sicd[::step, ::step]
                 self.image = Image.fromarray(remap(sar_image))
                 self.chip_sicd_box.config(state=tk.NORMAL)
             elif file_path.endswith((".jpg", ".jpeg", ".png")):
