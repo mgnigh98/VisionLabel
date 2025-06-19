@@ -364,7 +364,7 @@ class VisionLabelApp:
                 if self.fast_load_var.get():
                     file_size = os.path.getsize(file_path) // (1024**2)
                     if file_size > 100:
-                        step = np.min(file_size//50, 16)
+                        step = np.min([int((file_size/100)**.5), 16])
                 sar_image = self.sicd[::step, ::step]
                 self.image = Image.fromarray(remap(sar_image))
                 self.export_menu.entryconfig(8, state=tk.NORMAL)
