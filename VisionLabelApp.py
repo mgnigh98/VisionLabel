@@ -21,44 +21,44 @@ class VisionLabelApp:
         self.current_image_index = None
         self.image_paths = []
 
-        menu_bar = tk.Menu(root)
-        file_menu = tk.Menu(menu_bar, tearoff=0)
+        self.menu_bar = tk.Menu(root)
+        file_menu = tk.Menu(self.menu_bar, tearoff=0)
         file_menu.add_command(label="Open Image", command=self.open_image)
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=root.quit)
-        menu_bar.add_cascade(label="File", menu=file_menu)
+        self.menu_bar.add_cascade(label="File", menu=file_menu)
 
 
-        export_menu = tk.Menu(menu_bar, tearoff=0)
+        self.export_menu = tk.Menu(self.menu_bar, tearoff=0)
         self.csv_box = tk.IntVar()
         self.pix_box = tk.IntVar()
         self.bb_button = tk.IntVar()
-        export_menu.add_checkbutton(label="Export Shapes CSV", variable=self.csv_box, onvalue=1, offvalue=0, command=self.export_csv)
-        export_menu.add_checkbutton(label="Export Rectangles TXT", variable=self.pix_box, onvalue=1, offvalue=0, command=self.export_pix)
-        export_menu.add_checkbutton(label="Import Bounding Boxes", variable=self.bb_button, onvalue=1, offvalue=0, command=self.import_bounding_boxes)
-        export_menu.add_separator()
+        self.export_menu.add_checkbutton(label="Export Shapes CSV", variable=self.csv_box, onvalue=1, offvalue=0, command=self.export_csv)
+        self.export_menu.add_checkbutton(label="Export Rectangles TXT", variable=self.pix_box, onvalue=1, offvalue=0, command=self.export_pix)
+        self.export_menu.add_checkbutton(label="Import Bounding Boxes", variable=self.bb_button, onvalue=1, offvalue=0, command=self.import_bounding_boxes)
+        self.export_menu.add_separator()
         
         self.grid_chip_size = tk.IntVar(value=512)
-        export_menu.add_command(label="Export Chip Grid", command=self.grid_chip)
-        export_menu.add_separator()
+        self.export_menu.add_command(label="Export Chip Grid", command=self.grid_chip)
+        self.export_menu.add_separator()
 
         self.chip_png_var = tk.IntVar()
         self.chip_sicd_var = tk.IntVar()
-        export_menu.add_command(label="Export Chips", command=self.chip)
-        export_menu.add_checkbutton(label="Chip to PNG", variable=self.chip_png_var, onvalue=1, offvalue=0)
-        export_menu.add_checkbutton(label="Chip to SICD", variable=self.chip_sicd_var, onvalue=1, offvalue=0)
+        self.export_menu.add_command(label="Export Chips", command=self.chip)
+        self.export_menu.add_checkbutton(label="Chip to PNG", variable=self.chip_png_var, onvalue=1, offvalue=0)
+        self.export_menu.add_checkbutton(label="Chip to SICD", variable=self.chip_sicd_var, onvalue=1, offvalue=0)
 
-        menu_bar.add_cascade(label="Export/Import", menu=export_menu)
+        self.menu_bar.add_cascade(label="Export/Import", menu=self.export_menu)
         
-        options_menu = tk.Menu(menu_bar, tearoff=0)
+        options_menu = tk.Menu(self.menu_bar, tearoff=0)
         options_menu.add_command(label="Remove Image", command=self.remove_image)
         options_menu.add_separator()
         self.fast_load_var = tk.IntVar()
         options_menu.add_checkbutton(label="Fast Load Large SICDs (May break other functions)", variable=self.fast_load_var, onvalue=1, offvalue=0)
-        menu_bar.add_cascade(label="Options", menu=options_menu)
+        self.menu_bar.add_cascade(label="Options", menu=options_menu)
         
         
-        root.config(menu=menu_bar)
+        root.config(menu=self.menu_bar)
 
         # Add label for displaying file name
         self.text_box = scrolledtext.ScrolledText(self.root, wrap=tk.NONE, font=("Helvetica", 12), height=.5, width=150)
@@ -367,11 +367,11 @@ class VisionLabelApp:
                         step = np.min(file_size//50, 16)
                 sar_image = self.sicd[::step, ::step]
                 self.image = Image.fromarray(remap(sar_image))
-                self.chip_sicd_box.config(state=tk.NORMAL)
+                self.export_menu.entryconfig(8, state=tk.NORMAL)
             elif file_path.endswith((".jpg", ".jpeg", ".png")):
                 self.image = Image.open(file_path)
                 self.chip_sicd_var.set(0)
-                self.chip_sicd_box.config(state=tk.DISABLED)
+                self.export_menu.entryconfig(8, state=tk.DISABLED)
             
 
             # Calculate initial zoom level to fit the entire image in the canvas
